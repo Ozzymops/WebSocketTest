@@ -13,9 +13,4 @@
     <PackageReference Include="WebSocketManager" Version="1.0.1" />
   </ItemGroup>
 
-
-  <ItemGroup>
-    <Folder Include="Classes\" />
-  </ItemGroup>
-
 </Project>

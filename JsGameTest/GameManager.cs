@@ -7,6 +7,6 @@ namespace JsGameTest
 {
     public class GameManager
     {
-        public List<dynamic> Messages { get; set; } = new List<dynamic>(); 
+        public List<Classes.Room> Rooms { get; set; } = new List<Classes.Room>();
     }
 }
