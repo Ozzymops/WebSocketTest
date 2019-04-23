@@ -26,6 +26,7 @@
             console.log("Created room with code " + roomCode);
 
             $roomContent.val(roomCode);
+            repeatUserList();
         }
     }
 
@@ -35,6 +36,8 @@
             document.getElementById("preparations").style.display = "none";
             document.getElementById("chat").style.display = "block";
             console.log("Joined room with code " + roomCode);
+
+            repeatUserList();
         }
     }
 
@@ -44,11 +47,31 @@
             document.getElementById("preparations").style.display = "flex";
             document.getElementById("chat").style.display = "none";
             console.log("Left room.");
+
+            clearTimeout(userTimer);
+            userTimer = 0;
         }
     }
 
     connection.clientMethods["retrieveRoomCount"] = (roomCount) => {
         document.getElementById("rooms").innerHTML = "Kamers online: " + roomCount;
+    }
+
+    connection.clientMethods["retrieveUserList"] = (roomCode, userList) => {
+        if ($roomContent.val() == roomCode) {
+
+            var users = JSON.parse(userList);
+
+            console.log(users);
+
+            $('#users').empty();
+
+            for (var x in users)
+            {
+                var name = users[x];
+                $('#users').append('<li>' + name + '</li>');
+            }
+        }
     }
 
     // Functions
@@ -112,6 +135,15 @@
     function repeatRoomCount() {
         connection.invoke("RetrieveRoomCount");
         setTimeout(repeatRoomCount, 1000);
+    }
+
+    function repeatUserList() {
+        var room = $roomContent.val().trim();
+
+        if (room.length != 0) {
+            connection.invoke("RetrieveUserList", room);
+            userTimer = setTimeout(repeatUserList, 1000);
+        }
     }
 
     // - Open websocket connection
