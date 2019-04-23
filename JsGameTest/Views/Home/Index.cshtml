@@ -1,8 +1,35 @@
 ﻿@{
     ViewData["Title"] = "Home Page";
 }
+@model GameModel;
+@inject GameManager GameManager;
 
 <div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+    @*<p>Client:</p>
+    <form asp-controller="Game" asp-action="JoinGame">
+        <p>Gebruikersnaam: <input asp-for="Username" type="text" /></p>
+        <input type="submit" value="Verbinden" />
+    </form>
+    <hr />
+    <p>Host:</p>
+    <form asp-controller="Game" asp-action="HostGame">
+        <p>Gebruikersnaam: <input asp-for="Username" type="text" /></p>
+        <input type="submit" value="Aanmaken" />
+    </form>*@
+    <div>
+        <input class="form-control" id="usernameInput" type="text" placeholder="Gebruikersnaam" />
+        <input class="form-control" id="messageInput" type="text" placeholder="Bericht" />
+        <input class="form-check" id="sendButton" type="button" value="Verzenden" />
+        <hr />
+        <ul id="messages">
+            @foreach(var item in GameManager.Messages)
+            {
+                <li>@item.UserId: @item.Message</li>
+            }
+        </ul>
+    </div>
 </div>
+
+@section Scripts {
+    <script data-main="scripts/main" src="https://rawgit.com/radu-matei/websocket-manager/master/src/WebSocketManager.Client.TS/dist/WebSocketManager.js"></script>
+}
