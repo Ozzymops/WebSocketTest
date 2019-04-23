@@ -6,6 +6,9 @@
 <div class="text-center">
     <div>
         <p id="statusMessage"></p>
+        <div id="stats">
+            <p id="rooms">Kamers online: </p>
+        </div>
         <div id="preparations" style="display: flex; flex-direction: row;">
             <div>
                 <input class="form-control" style="width: 200px;" id="usernameInput" type="text" placeholder="Gebruikersnaam" />
@@ -19,6 +22,7 @@
         <div id="chat" style="display: none;">
             <input class="form-control" id="messageInput" type="text" placeholder="Bericht" />
             <input class="form-check" id="sendButton" type="button" value="Verzenden" />
+            <input class="form-check" id="leaveButton" type="button" value="Verlaat kamer" />
             <hr />
             <div style="display: flex; flex-direction: row;">
                 <div style="width: 80%;">

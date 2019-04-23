@@ -4,7 +4,7 @@
     connection.enableLogging = true;
 
     connection.connectionMethods.onConnected = () => {
-
+        repeatRoomCount();
     }
 
     connection.connectionMethods.onDisconnected = () => {
@@ -36,6 +36,19 @@
             document.getElementById("chat").style.display = "block";
             console.log("Joined room with code " + roomCode);
         }
+    }
+
+    connection.clientMethods["leaveRoom"] = (socketId) => {
+        if (socketId == connection.connectionId) {
+            document.getElementById("statusMessage").innerHTML = "Left room.";
+            document.getElementById("preparations").style.display = "flex";
+            document.getElementById("chat").style.display = "none";
+            console.log("Left room.");
+        }
+    }
+
+    connection.clientMethods["retrieveRoomCount"] = (roomCount) => {
+        document.getElementById("rooms").innerHTML = "Kamers online: " + roomCount;
     }
 
     // Functions
@@ -82,6 +95,24 @@
             }
         }
     });
+
+    // - Leave room
+    $('#leaveButton').click(function () {
+        var room = $roomContent.val().trim();
+
+        if (room.length != 0) {
+            connection.invoke("LeaveRoom", connection.connectionId, room);
+
+            $userContent.val('');
+            $messageContent.val('');
+            $roomContent.val('');
+        }
+    });
+
+    function repeatRoomCount() {
+        connection.invoke("RetrieveRoomCount");
+        setTimeout(repeatRoomCount, 1000);
+    }
 
     // - Open websocket connection
     connection.start();

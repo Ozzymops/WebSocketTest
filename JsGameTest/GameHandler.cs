@@ -65,5 +65,34 @@ namespace JsGameTest
                 }
             }
         }
+
+        public async Task LeaveRoom(string socketId, string roomCode)
+        {
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (room.RoomCode == roomCode)
+                {
+                    foreach (Classes.User user in room.Users)
+                    {
+                        if (user.SocketId == socketId)
+                        {
+                            room.Users.Remove(user);
+
+                            if (room.Users.Count == 0)
+                            {
+                                _gameManager.Rooms.Remove(room);
+                            }
+
+                            await InvokeClientMethodToAllAsync("leaveRoom", socketId);
+                        }
+                    }
+                }
+            }
+        }
+
+        public async Task RetrieveRoomCount()
+        {
+            await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
+        }
     }
 }
