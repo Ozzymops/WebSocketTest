@@ -109,20 +109,24 @@ namespace JsGameTest
 
         public async Task RetrieveUserList(string roomCode)
         {
+            string ownerId = "";
             List<string> UsernameList = new List<string>();
 
             foreach(Classes.Room room in _gameManager.Rooms)
             {
                 if (room.RoomCode == roomCode)
                 {
+                    ownerId = room.RoomOwnerId;
+
                     foreach(Classes.User user in room.Users)
                     {
-                        UsernameList.Add(user.Username);
+                        string tempString = user.Username + ":|!" + user.SocketId;
+                        UsernameList.Add(tempString);
                     }
                 }
             }
 
-            await InvokeClientMethodToAllAsync("retrieveUserList", roomCode, Newtonsoft.Json.JsonConvert.SerializeObject(UsernameList));
+            await InvokeClientMethodToAllAsync("retrieveUserList", roomCode, ownerId, Newtonsoft.Json.JsonConvert.SerializeObject(UsernameList));
         }
     }
 }

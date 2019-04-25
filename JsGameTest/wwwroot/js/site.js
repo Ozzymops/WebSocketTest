@@ -1,7 +1,7 @@
 ﻿$(document).ready(function () {
     // WebSocket
     var connection = new WebSocketManager.Connection("ws://localhost:50000/game");
-    connection.enableLogging = true;
+    connection.enableLogging = false;
 
     connection.connectionMethods.onConnected = () => {
         repeatRoomCount();
@@ -30,7 +30,6 @@
             document.getElementById("statusMessage").innerHTML = "Created room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'. You are the owner.";
             document.getElementById("preparations").style.display = "none";
             document.getElementById("chat").style.display = "block";
-            console.log("Created room with code " + roomCode);
 
             $roomContent.val(roomCode);
             repeatUserList();
@@ -49,7 +48,6 @@
             document.getElementById("statusMessage").innerHTML = "Joined room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'.";
             document.getElementById("preparations").style.display = "none";
             document.getElementById("chat").style.display = "block";
-            console.log("Joined room with code " + roomCode);
 
             repeatUserList();
         }
@@ -73,19 +71,27 @@
         document.getElementById("rooms").innerHTML = "Kamers online: " + roomCount;
     }
 
-    connection.clientMethods["retrieveUserList"] = (roomCode, userList) => {
+    connection.clientMethods["retrieveUserList"] = (roomCode, ownerId, userList) => {
         if ($roomContent.val() == roomCode) {
 
             var users = JSON.parse(userList);
-
-            console.log(users);
 
             $('#users').empty();
 
             for (var x in users)
             {
-                var name = users[x];
-                $('#users').append('<li>' + name + '</li>');
+                var tempString = users[x];
+                var tempArray = tempString.split(':|!');
+
+                if (ownerId == connection.connectionId) {
+                    // var idString = "'" + tempArray[1] + "'";
+                    // $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
+                    var idString = "'" + tempString + "'";
+                    $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
+                }
+                else {
+                    $('#users').append('<li>' + tempArray[0] + '</li>');
+                }
             }
         }
     }
@@ -151,6 +157,18 @@
             $roomContent.val('');
         }
     });
+
+    // - Kick user from lobby
+    $.kickUser = function (user) {
+        var room = $roomContent.val().trim();
+        var tempArray = user.split(":|!");
+        var message = "[User " + tempArray[0] + " was kicked.]";
+
+        if (room.length != 0) {
+            connection.invoke("ServerMessage", message, room);
+            connection.invoke("LeaveRoom", tempArray[1], room);
+        }
+    }
 
     function repeatRoomCount() {
         connection.invoke("RetrieveRoomCount");
