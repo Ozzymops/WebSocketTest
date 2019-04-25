@@ -38,6 +38,9 @@
             var message = "[User " + $userContent.val().trim() + " joined the room.]"
             var room = $roomContent.val().trim();
             connection.invoke("ServerMessage", message, room);
+
+            // Set host buttons
+            document.getElementById("startButton").style.display = "block";
         }
     }
 
@@ -61,6 +64,8 @@
 
             clearTimeout(userTimer);
             userTimer = 0;
+
+            $('#messages').empty();
         }
     }
 

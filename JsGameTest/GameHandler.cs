@@ -77,16 +77,23 @@ namespace JsGameTest
             {
                 if (room.RoomCode == roomCode)
                 {
+                    // If owner leaves...
+                    if (socketId == room.RoomOwnerId)
+                    {
+                        foreach (Classes.User user in room.Users)
+                        {
+                            await InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
+                        }
+
+                        _gameManager.Rooms.Remove(room);
+                    }
+
+                    // If regular user leaves
                     foreach (Classes.User user in room.Users)
                     {
                         if (user.SocketId == socketId)
                         {
                             room.Users.Remove(user);
-
-                            if (room.Users.Count == 0)
-                            {
-                                _gameManager.Rooms.Remove(room);
-                            }
 
                             await InvokeClientMethodToAllAsync("leaveRoom", socketId);
                         }
