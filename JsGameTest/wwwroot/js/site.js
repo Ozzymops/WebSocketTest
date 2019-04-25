@@ -18,15 +18,26 @@
         }
     }
 
+    connection.clientMethods["serverMessage"] = (message, roomCode) => {
+        if ($roomContent.val() == roomCode) {
+            var messageText = message;
+            $('#messages').append('<li>' + messageText + '</li>');
+        }
+    }
+
     connection.clientMethods["returnRoomCode"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
-            document.getElementById("statusMessage").innerHTML = "Created room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'.";
+            document.getElementById("statusMessage").innerHTML = "Created room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'. You are the owner.";
             document.getElementById("preparations").style.display = "none";
             document.getElementById("chat").style.display = "block";
             console.log("Created room with code " + roomCode);
 
             $roomContent.val(roomCode);
             repeatUserList();
+
+            var message = "[User " + $userContent.val().trim() + " joined the room.]"
+            var room = $roomContent.val().trim();
+            connection.invoke("ServerMessage", message, room);
         }
     }
 
@@ -111,10 +122,12 @@
     $('#joinButton').click(function () {
         var user = $userContent.val().trim();
         var room = $roomContent.val().trim();
+        var message = "[User " + $userContent.val().trim() + " joined the room.]";
 
         if (user.length != 0) {
             if (room.length != 0) {
                 connection.invoke("JoinRoom", connection.connectionId, user, room);
+                connection.invoke("ServerMessage", message, room);
             }
         }
     });
@@ -122,8 +135,10 @@
     // - Leave room
     $('#leaveButton').click(function () {
         var room = $roomContent.val().trim();
+        var message = "[User " + $userContent.val().trim() + " left the room.]";
 
         if (room.length != 0) {
+            connection.invoke("ServerMessage", message, room);
             connection.invoke("LeaveRoom", connection.connectionId, room);
 
             $userContent.val('');

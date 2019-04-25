@@ -40,6 +40,11 @@ namespace JsGameTest
             }            
         }
 
+        public async Task ServerMessage(string message, string roomCode)
+        {
+            await InvokeClientMethodToAllAsync("serverMessage", message, roomCode);
+        }
+
         public async Task CreateRoom(string socketId, string username)
         {
             Classes.Room Room = new Classes.Room();
