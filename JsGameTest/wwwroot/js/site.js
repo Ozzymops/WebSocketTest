@@ -4,7 +4,7 @@
     connection.enableLogging = false;
 
     connection.connectionMethods.onConnected = () => {
-        repeatRoomCount();
+        repeatStuff();
     }
 
     connection.connectionMethods.onDisconnected = () => {
@@ -49,8 +49,6 @@
             document.getElementById("chat").style.display = "block";
 
             $roomContent.val(roomCode);
-            repeatUserList();
-            repeatRoomState();
 
             var message = "[User " + $userContent.val().trim() + " joined the room.]"
             var room = $roomContent.val().trim();
@@ -58,6 +56,9 @@
 
             // Set host buttons
             document.getElementById("startButton").style.display = "block";
+
+            inRoom = true;
+            getUsersAndRoomState();
         }
     }
 
@@ -68,7 +69,8 @@
             document.getElementById("preparations").style.display = "none";
             document.getElementById("chat").style.display = "block";
 
-            repeatUserList();
+            inRoom = true;
+            getUsersAndRoomState();
         }
     }
 
@@ -78,13 +80,12 @@
             document.getElementById("statusMessage").innerHTML = "Left room.";
             document.getElementById("preparations").style.display = "flex";
             document.getElementById("chat").style.display = "none";
-            document.getElementById("state").innerHTML = "";
+            document.getElementById("roomState").innerHTML = "";
             console.log("Left room.");
 
-            clearTimeout(userTimer);
-            userTimer = 0;
-
             $('#messages').empty();
+
+            inRoom = false;
         }
     }
 
@@ -143,6 +144,7 @@
     var $messageContent = $('#messageInput');
     var $userContent = $('#usernameInput');
     var $roomContent = $('#roomInput');
+    var inRoom = false;
 
     // - Send message on 'enter'
     $messageContent.keyup(function (e) {
@@ -224,30 +226,21 @@
         }
     }
 
-    // - Get room count
-    function repeatRoomCount() {
+    // - Get stuff every five seconds
+    function repeatStuff() {
         connection.invoke("RetrieveRoomCount");
-        setTimeout(repeatRoomCount, 1000); // repeat every second
+
+        setTimeout(repeatStuff, 5000); // repeat every five seconds
     }
 
-    // - Get list of users inside of room
-    function repeatUserList() {
-        var room = $roomContent.val().trim();
+    function getUsersAndRoomState() {
+        if (inRoom) {
+            var room = $roomContent.val().trim();
 
-        if (room.length != 0) {
             connection.invoke("RetrieveUserList", room);
             connection.invoke("CheckRoomState", room);
-            userTimer = setTimeout(repeatUserList, 1000); // repeat every second
-        }
-    }
 
-    // DEBUG - check room state
-    function repeatRoomState() {
-        var room = $roomContent.val().trim();
-
-        if (room.length != 0) {
-            connection.invoke("CheckRoomState", room);
-            setTimeOut(repeatRoomState, 1000);
+            setTimeout(getUsersAndRoomState, 10000); // repeat every ten seconds
         }
     }
 

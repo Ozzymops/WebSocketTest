@@ -48,6 +48,7 @@ namespace JsGameTest
                         if (user.SocketId == socketId)
                         {
                             room.Messages.Add(dynamicMessage);
+                            room.ResetTimer();
                             await InvokeClientMethodToAllAsync("pingMessage", socketId, username, message, roomCode);
                         }
                     }
@@ -63,6 +64,13 @@ namespace JsGameTest
         /// <returns></returns>
         public async Task ServerMessage(string message, string roomCode)
         {
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (roomCode == room.RoomCode)
+                {
+                    room.ResetTimer();
+                }
+            }
             await InvokeClientMethodToAllAsync("serverMessage", message, roomCode);
         }
 
@@ -100,6 +108,7 @@ namespace JsGameTest
                 {
                     if (room.RoomState == Classes.Room.State.Waiting || room.RoomState == Classes.Room.State.Idle)
                     {
+                        room.ResetTimer();
                         room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
                         await InvokeClientMethodToAllAsync("joinRoom", socketId, roomCode);
                     }
@@ -144,7 +153,7 @@ namespace JsGameTest
                         if (user.SocketId == socketId)
                         {
                             room.Users.Remove(user);
-
+                            room.ResetTimer();
                             await InvokeClientMethodToAllAsync("leaveRoom", socketId);
                         }
                     }
@@ -157,23 +166,9 @@ namespace JsGameTest
         /// </summary>
         /// <param name="roomCode"></param>
         /// <returns></returns>
-        public async Task KillRoom(string roomCode)
+        public async Task KillRoom(Classes.Room room)
         {
-            foreach (Classes.Room room in _gameManager.Rooms)
-            {
-                if (roomCode == room.RoomCode)
-                {
-                    foreach (Classes.User user in room.Users)
-                    {                        
-                        await InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
 
-                        string message = "Room has died. Reason: idle for too long.";
-                        await InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
-                    }
-
-                    _gameManager.Rooms.Remove(room);
-                }
-            }
         }
 
         /// <summary>
@@ -237,13 +232,30 @@ namespace JsGameTest
         /// <returns></returns>
         public async void CheckRoomStates(object sender, ElapsedEventArgs e)
         {
+            List<Task> taskList = new List<Task>();
+
             foreach (Classes.Room room in _gameManager.Rooms)
             {
                 if (room.RoomState == Classes.Room.State.Dead)
                 {
-                    await KillRoom(room.RoomCode);
+                    var t = new Task(() => {
+                        foreach (Classes.User user in room.Users)
+                        {
+                            InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
+
+                            string message = "Room has died. Reason: idle for too long.";
+                            InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
+                        }
+
+                        _gameManager.Rooms.Remove(room);
+                    });
+
+                    taskList.Add(t);
+                    t.Start();
                 }
             }
+
+            Task.WaitAll(taskList.ToArray());
         }
 
         // DEBUG!!!
@@ -253,7 +265,7 @@ namespace JsGameTest
             {
                 if (roomCode == room.RoomCode)
                 {
-                    string state = room.RoomState.ToString() + ": " + room.IdleTime.ToString() + "s.";
+                    string state = room.RoomState.ToString() + ": " + room.IdleStrikes.ToString() + " strikes.";
                     await InvokeClientMethodToAllAsync("checkRoomState", room.RoomCode, state);
                 }
             }

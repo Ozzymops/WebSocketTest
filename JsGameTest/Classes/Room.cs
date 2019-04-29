@@ -15,14 +15,14 @@ namespace JsGameTest.Classes
         public State RoomState { get; set; }
         public List<Classes.User> Users { get; set; } = new List<Classes.User>();
         public List<dynamic> Messages { get; set; } = new List<dynamic>();
-        public int IdleTime = 10;
+        public int IdleStrikes = 3;
+
+        public Timer timer = new Timer(TimeSpan.FromSeconds(10).TotalMilliseconds); // Tick every sixty seconds
 
         public Room()
         {
             GenerateCode();
 
-            // Timer ticks every second
-            Timer timer = new Timer(TimeSpan.FromSeconds(1).TotalMilliseconds);
             timer.AutoReset = true;
             timer.Elapsed += new ElapsedEventHandler(IdleTimer);
             timer.Start();
@@ -63,24 +63,26 @@ namespace JsGameTest.Classes
 
         public void IdleTimer(object sender, ElapsedEventArgs e)
         {
-            // Tick timer - reset in every function call from handler
-            if (IdleTime > 0)
+            if (RoomState != State.InProgress)
             {
-                IdleTime -= 1;
-            }
-            
-            // Go to idle mode after two minutes of inactivity
-            if (IdleTime <= 0 && RoomState != State.Idle && RoomState != State.Dead)
-            {
-                IdleTime = 10;
-                RoomState = State.Idle;
-            }
+                // Tick timer - reset in every function call from handler
+                if (IdleStrikes > 0)
+                {
+                    IdleStrikes -= 1;
+                }
 
-            // Die when idle for two minutes
-            if (IdleTime <= 0 && RoomState == State.Idle)
-            {
-                RoomState = State.Dead;               
+                // Die after strikes are up
+                if (IdleStrikes <= 0 && RoomState != State.Dead)
+                {
+                    RoomState = State.Dead;
+                    timer.Stop();
+                }
             }
+        }
+
+        public void ResetTimer()
+        {
+            IdleStrikes = 3;
         }
     }
 }
