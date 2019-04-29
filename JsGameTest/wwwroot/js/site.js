@@ -11,6 +11,7 @@
 
     }
 
+    // Print message inside of chat
     connection.clientMethods["pingMessage"] = (socketId, username, message, roomCode) => {
         if ($roomContent.val() == roomCode) {
             var messageText = username + ": " + message;
@@ -18,6 +19,7 @@
         }
     }
 
+    // Print server message inside of chat
     connection.clientMethods["serverMessage"] = (message, roomCode) => {
         if ($roomContent.val() == roomCode) {
             var messageText = message;
@@ -25,6 +27,7 @@
         }
     }
 
+    // Open up a room.
     connection.clientMethods["returnRoomCode"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
             document.getElementById("statusMessage").innerHTML = "Created room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'. You are the owner.";
@@ -43,6 +46,7 @@
         }
     }
 
+    // Join a open room.
     connection.clientMethods["joinRoom"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
             document.getElementById("statusMessage").innerHTML = "Joined room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'.";
@@ -53,6 +57,7 @@
         }
     }
 
+    // Leave a room.
     connection.clientMethods["leaveRoom"] = (socketId) => {
         if (socketId == connection.connectionId) {
             document.getElementById("statusMessage").innerHTML = "Left room.";
@@ -67,10 +72,12 @@
         }
     }
 
+    // Get room count
     connection.clientMethods["retrieveRoomCount"] = (roomCount) => {
         document.getElementById("rooms").innerHTML = "Kamers online: " + roomCount;
     }
 
+    // Get list of users inside of room
     connection.clientMethods["retrieveUserList"] = (roomCode, ownerId, userList) => {
         if ($roomContent.val() == roomCode) {
 
@@ -170,17 +177,19 @@
         }
     }
 
+    // - Get room count
     function repeatRoomCount() {
         connection.invoke("RetrieveRoomCount");
-        setTimeout(repeatRoomCount, 1000);
+        setTimeout(repeatRoomCount, 1000); // repeat every second
     }
 
+    // - Get list of users inside of room
     function repeatUserList() {
         var room = $roomContent.val().trim();
 
         if (room.length != 0) {
             connection.invoke("RetrieveUserList", room);
-            userTimer = setTimeout(repeatUserList, 1000);
+            userTimer = setTimeout(repeatUserList, 1000); // repeat every second
         }
     }
 

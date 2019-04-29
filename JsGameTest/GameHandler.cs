@@ -15,6 +15,14 @@ namespace JsGameTest
             _gameManager = gameManager;
         }
 
+        /// <summary>
+        /// Send a message to everyone else in the room.
+        /// </summary>
+        /// <param name="socketId">Sender ID</param>
+        /// <param name="username">Sender username</param>
+        /// <param name="message">Message</param>
+        /// <param name="roomCode">Room</param>
+        /// <returns></returns>
         public async Task SendMessage(string socketId, string username, string message, string roomCode)
         {
             dynamic dynamicMessage = new ExpandoObject();
@@ -40,11 +48,23 @@ namespace JsGameTest
             }            
         }
 
+        /// <summary>
+        /// Send a message to everyone else in the room without a sender.
+        /// </summary>
+        /// <param name="message">Message</param>
+        /// <param name="roomCode">Room</param>
+        /// <returns></returns>
         public async Task ServerMessage(string message, string roomCode)
         {
             await InvokeClientMethodToAllAsync("serverMessage", message, roomCode);
         }
 
+        /// <summary>
+        /// Open a room instance.
+        /// </summary>
+        /// <param name="socketId">Owner ID</param>
+        /// <param name="username">Owner username</param>
+        /// <returns></returns>
         public async Task CreateRoom(string socketId, string username)
         {
             Classes.Room Room = new Classes.Room();
@@ -59,6 +79,13 @@ namespace JsGameTest
             await InvokeClientMethodToAllAsync("returnRoomCode", socketId, Room.RoomCode);
         }
 
+        /// <summary>
+        /// Join a room instance.
+        /// </summary>
+        /// <param name="socketId">Client ID</param>
+        /// <param name="username">Client username</param>
+        /// <param name="roomCode">Room</param>
+        /// <returns></returns>
         public async Task JoinRoom(string socketId, string username, string roomCode)
         {
             foreach(Classes.Room room in _gameManager.Rooms)
@@ -71,6 +98,12 @@ namespace JsGameTest
             }
         }
 
+        /// <summary>
+        /// Leave a room instance.
+        /// </summary>
+        /// <param name="socketId">Client ID</param>
+        /// <param name="roomCode">Room</param>
+        /// <returns></returns>
         public async Task LeaveRoom(string socketId, string roomCode)
         {
             foreach (Classes.Room room in _gameManager.Rooms)
@@ -102,11 +135,20 @@ namespace JsGameTest
             }
         }
 
+        /// <summary>
+        /// Retrieve the amount of rooms online.
+        /// </summary>
+        /// <returns></returns>
         public async Task RetrieveRoomCount()
         {
             await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
         }
 
+        /// <summary>
+        /// Retrieve connected users inside of the current room.
+        /// </summary>
+        /// <param name="roomCode">Room</param>
+        /// <returns></returns>
         public async Task RetrieveUserList(string roomCode)
         {
             string ownerId = "";
