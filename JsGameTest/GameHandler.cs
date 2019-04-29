@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Timers;
 using WebSocketManager;
 
 namespace JsGameTest
@@ -13,6 +14,12 @@ namespace JsGameTest
         public GameHandler (WebSocketConnectionManager webSocketConnectionManager, GameManager gameManager): base(webSocketConnectionManager)
         {
             _gameManager = gameManager;
+
+            // Timer ticks every five seconds.
+            Timer timer = new Timer(TimeSpan.FromSeconds(30).TotalMilliseconds);
+            timer.AutoReset = true;
+            timer.Elapsed += new ElapsedEventHandler(CheckRoomStates);
+            timer.Start();
         }
 
         /// <summary>
@@ -69,7 +76,6 @@ namespace JsGameTest
         {
             Classes.Room Room = new Classes.Room();
 
-            Room.GenerateCode();
             Room.RoomOwnerId = socketId;
             Room.RoomOwner = username;
             Room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
@@ -92,8 +98,16 @@ namespace JsGameTest
             {
                 if (room.RoomCode == roomCode)
                 {
-                    room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
-                    await InvokeClientMethodToAllAsync("joinRoom", socketId, roomCode);
+                    if (room.RoomState == Classes.Room.State.Waiting || room.RoomState == Classes.Room.State.Idle)
+                    {
+                        room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
+                        await InvokeClientMethodToAllAsync("joinRoom", socketId, roomCode);
+                    }
+                    else
+                    {
+                        string message = "Failed to join room - game is already in progress or finished.";
+                        await InvokeClientMethodToAllAsync("setStateMessage", socketId, message);
+                    }
                 }
             }
         }
@@ -116,6 +130,9 @@ namespace JsGameTest
                         foreach (Classes.User user in room.Users)
                         {
                             await InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
+
+                            string message = "Room has died. Reason: owner left the room.";
+                            await InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
                         }
 
                         _gameManager.Rooms.Remove(room);
@@ -131,6 +148,49 @@ namespace JsGameTest
                             await InvokeClientMethodToAllAsync("leaveRoom", socketId);
                         }
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete a room after it's been idle for too long.
+        /// </summary>
+        /// <param name="roomCode"></param>
+        /// <returns></returns>
+        public async Task KillRoom(string roomCode)
+        {
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (roomCode == room.RoomCode)
+                {
+                    foreach (Classes.User user in room.Users)
+                    {                        
+                        await InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
+
+                        string message = "Room has died. Reason: idle for too long.";
+                        await InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
+                    }
+
+                    _gameManager.Rooms.Remove(room);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Start a game with the current room.
+        /// </summary>
+        /// <param name="socketId">User ID</param>
+        /// <param name="roomCode">Room</param>
+        /// <returns></returns>
+        public async Task StartGame(string socketId, string roomCode)
+        {
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (room.RoomCode == roomCode)
+                {
+                    room.RoomState = Classes.Room.State.InProgress;
+
+                    await InvokeClientMethodToAllAsync("startGame", roomCode, socketId);
                 }
             }
         }
@@ -169,6 +229,34 @@ namespace JsGameTest
             }
 
             await InvokeClientMethodToAllAsync("retrieveUserList", roomCode, ownerId, Newtonsoft.Json.JsonConvert.SerializeObject(UsernameList));
+        }
+
+        /// <summary>
+        /// Check rooms for their states and handle accordingly.
+        /// </summary>
+        /// <returns></returns>
+        public async void CheckRoomStates(object sender, ElapsedEventArgs e)
+        {
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (room.RoomState == Classes.Room.State.Dead)
+                {
+                    await KillRoom(room.RoomCode);
+                }
+            }
+        }
+
+        // DEBUG!!!
+        public async Task CheckRoomState(string roomCode)
+        {
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (roomCode == room.RoomCode)
+                {
+                    string state = room.RoomState.ToString() + ": " + room.IdleTime.ToString() + "s.";
+                    await InvokeClientMethodToAllAsync("checkRoomState", room.RoomCode, state);
+                }
+            }
         }
     }
 }

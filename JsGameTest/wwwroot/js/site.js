@@ -11,6 +11,20 @@
 
     }
 
+    // Set status message
+    connection.clientMethods["setStateMessage"] = (socketId, message) => {
+        if (socketId == connection.connectionId) {
+            document.getElementById("statusMessage").innerHTML = message;
+        }
+    }
+
+    // DEBUG check room state
+    connection.clientMethods["checkRoomState"] = (roomCode, state) => {
+        if ($roomContent.val() == roomCode) {
+            document.getElementById("roomState").innerHTML = state;
+        }
+    }
+
     // Print message inside of chat
     connection.clientMethods["pingMessage"] = (socketId, username, message, roomCode) => {
         if ($roomContent.val() == roomCode) {
@@ -36,6 +50,7 @@
 
             $roomContent.val(roomCode);
             repeatUserList();
+            repeatRoomState();
 
             var message = "[User " + $userContent.val().trim() + " joined the room.]"
             var room = $roomContent.val().trim();
@@ -63,6 +78,7 @@
             document.getElementById("statusMessage").innerHTML = "Left room.";
             document.getElementById("preparations").style.display = "flex";
             document.getElementById("chat").style.display = "none";
+            document.getElementById("state").innerHTML = "";
             console.log("Left room.");
 
             clearTimeout(userTimer);
@@ -103,6 +119,26 @@
         }
     }
 
+    // Start game with current room
+    connection.clientMethods["startGame"] = (roomCode, ownerId) => {
+        if ($roomContent.val() == roomCode) {
+            document.getElementById("statusMessage").innerHTML = "Started game with room '" + $roomContent.val() + "'.";
+            document.getElementById("preparations").style.display = "none";
+            document.getElementById("chat").style.display = "none";
+            document.getElementById("game").style.display = "block";
+
+            // If owner
+            if (ownerId == connection.connectionId) {
+                document.getElementById("game-owner").style.display = "block";
+            }
+            // If client
+            else {
+                document.getElementById("game-client").style.display = "block";
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------- //
     // Functions
     var $messageContent = $('#messageInput');
     var $userContent = $('#usernameInput');
@@ -165,6 +201,17 @@
         }
     });
 
+    // - Start game with current room
+    $('#startButton').click(function () {
+        var room = $roomContent.val().trim();
+
+        if (room.length != 0) {
+            connection.invoke("StartGame", connection.connectionId, room);
+
+            $messageContent.val('');
+        }
+    });
+
     // - Kick user from lobby
     $.kickUser = function (user) {
         var room = $roomContent.val().trim();
@@ -189,7 +236,18 @@
 
         if (room.length != 0) {
             connection.invoke("RetrieveUserList", room);
+            connection.invoke("CheckRoomState", room);
             userTimer = setTimeout(repeatUserList, 1000); // repeat every second
+        }
+    }
+
+    // DEBUG - check room state
+    function repeatRoomState() {
+        var room = $roomContent.val().trim();
+
+        if (room.length != 0) {
+            connection.invoke("CheckRoomState", room);
+            setTimeOut(repeatRoomState, 1000);
         }
     }
 
