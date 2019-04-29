@@ -184,6 +184,7 @@ namespace JsGameTest
                 if (room.RoomCode == roomCode)
                 {
                     room.RoomState = Classes.Room.State.InProgress;
+                    room.IdleStrikes = room.ProgressStrikes;
 
                     await InvokeClientMethodToAllAsync("startGame", roomCode, socketId);
                 }
@@ -230,7 +231,7 @@ namespace JsGameTest
         /// Check rooms for their states and handle accordingly.
         /// </summary>
         /// <returns></returns>
-        public async void CheckRoomStates(object sender, ElapsedEventArgs e)
+        public void CheckRoomStates(object sender, ElapsedEventArgs e)
         {
             List<Task> taskList = new List<Task>();
 
@@ -265,7 +266,7 @@ namespace JsGameTest
             {
                 if (roomCode == room.RoomCode)
                 {
-                    string state = room.RoomState.ToString() + ": " + room.IdleStrikes.ToString() + " strikes.";
+                    string state = room.RoomState.ToString() + ": " + room.IdleStrikes.ToString() + " minutes left before killing the room.";
                     await InvokeClientMethodToAllAsync("checkRoomState", room.RoomCode, state);
                 }
             }

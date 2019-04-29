@@ -11,13 +11,14 @@ namespace JsGameTest.Classes
         public string RoomCode { get; set; }
         public string RoomOwnerId { get; set; }
         public string RoomOwner { get; set; }
-        public enum State { Idle, Waiting, InProgress, Finished, Dead };
+        public enum State { Waiting, InProgress, Finished, Dead };
         public State RoomState { get; set; }
         public List<Classes.User> Users { get; set; } = new List<Classes.User>();
         public List<dynamic> Messages { get; set; } = new List<dynamic>();
         public int IdleStrikes = 3;
+        public int ProgressStrikes = 20;
 
-        public Timer timer = new Timer(TimeSpan.FromSeconds(10).TotalMilliseconds); // Tick every sixty seconds
+        public Timer timer = new Timer(TimeSpan.FromSeconds(60).TotalMilliseconds); // Tick every sixty seconds
 
         public Room()
         {
@@ -63,26 +64,30 @@ namespace JsGameTest.Classes
 
         public void IdleTimer(object sender, ElapsedEventArgs e)
         {
-            if (RoomState != State.InProgress)
+            // Tick timer - reset in every function call from handler
+            if (IdleStrikes > 0)
             {
-                // Tick timer - reset in every function call from handler
-                if (IdleStrikes > 0)
-                {
-                    IdleStrikes -= 1;
-                }
+                IdleStrikes -= 1;
+            }
 
-                // Die after strikes are up
-                if (IdleStrikes <= 0 && RoomState != State.Dead)
-                {
-                    RoomState = State.Dead;
-                    timer.Stop();
-                }
+            // Die after strikes are up
+            if (IdleStrikes <= 0 && RoomState != State.Dead)
+            {
+                RoomState = State.Dead;
+                timer.Stop();
             }
         }
 
         public void ResetTimer()
         {
-            IdleStrikes = 3;
+            if (RoomState == State.Waiting)
+            {
+                IdleStrikes = 3;
+            }
+            else if (RoomState == State.InProgress)
+            {
+                IdleStrikes = ProgressStrikes;
+            }
         }
     }
 }
