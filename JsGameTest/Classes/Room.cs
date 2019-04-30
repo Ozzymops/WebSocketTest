@@ -9,16 +9,20 @@ namespace JsGameTest.Classes
     public class Room
     {
         // Static
-        public State RoomState { get; set; }
-        public int MaxIdleStrikes = 3;
-        public int MaxProgressStrikes = 20;
-        // Dynamic
-        public int CurrentStrikes;
         public string RoomCode { get; set; }
         public string RoomOwnerId { get; set; }
         public string RoomOwner { get; set; }
+        public State RoomState { get; set; }
+        public int MaxIdleStrikes = 3;
+        public int MaxProgressStrikes = 20;
+        public int MaxPlayers = 9;
+        public int MinPlayers = 3;
+        // Dynamic
+        public int CurrentStrikes;
         public enum State { Waiting, InProgress, Finished, Dead };
         public List<Classes.User> Users { get; set; } = new List<Classes.User>();
+        public List<List<Classes.User>> Groups { get; set; } = new List<List<Classes.User>>();
+        public List<Classes.Story> Stories { get; set; } = new List<Classes.Story>();
         public List<dynamic> Messages { get; set; } = new List<dynamic>();
         
 
@@ -110,9 +114,94 @@ namespace JsGameTest.Classes
             }
         }
 
-        public void RandomizeGroups()
+        public bool GamePreparation()
         {
+            int playerCount = Users.Count();
 
+            if (playerCount >= MinPlayers)
+            {
+                Random rng = new Random();
+           
+                // Shuffle list
+                List<User> shuffledUsers = Users;
+
+                int a = playerCount;
+                while (a > 1)
+                {
+                    a--;
+                    int b = rng.Next(a + 1);
+                    User tempUser = shuffledUsers[b];
+                    shuffledUsers[b] = shuffledUsers[a];
+                    shuffledUsers[a] = tempUser;
+                }
+
+                // Assign groups
+                int group = 1;
+                int maxInGroup = MinPlayers;
+                int extra = 0;
+
+                if (shuffledUsers.Count % MinPlayers == 0)
+                {
+                    extra = 0;
+                }
+                else if (shuffledUsers.Count % MinPlayers == 1)
+                {
+                    extra = 1;
+                }
+                else if (shuffledUsers.Count % MinPlayers >= 1)
+                {
+                    extra = (shuffledUsers.Count % MinPlayers);
+                }
+
+                foreach (User u in shuffledUsers)
+                {
+                    if (extra == 1)
+                    {
+                        maxInGroup += extra;
+                        extra--;
+                    }
+                    else if (extra >= 2)
+                    {
+                        maxInGroup += (extra / MinPlayers);
+                    }
+
+                    u.GameGroup = group;
+                    maxInGroup--;
+
+                    if (maxInGroup <= 0)
+                    {
+                        group++;
+                        maxInGroup = MinPlayers;
+                    }
+                }
+
+                // Retrieve list of story ID's
+                DatabaseQueries dq = new DatabaseQueries();
+                List<Story> storyList = dq.RetrieveAllStories();
+
+                // Shuffle stories
+                int c = storyList.Count;
+                while (c > 1)
+                {
+                    c--;
+                    int d = rng.Next(c + 1);
+                    Story tempStory = storyList[d];
+                    storyList[d] = storyList[c];
+                    storyList[c] = tempStory;
+                }
+
+                // Pick random stories from list for groups
+                for (int x = 1; x < group; x++)
+                {
+                    Stories.Add(storyList[x - 1]);
+                }
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 }

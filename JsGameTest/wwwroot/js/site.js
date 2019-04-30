@@ -100,7 +100,7 @@
     }
 
     // Get list of users inside of room
-    connection.clientMethods["retrieveUserList"] = (roomCode, ownerId, userList) => {
+    connection.clientMethods["retrieveUserList"] = (roomCode, ownerId, userList, withGroups) => {
         if ($roomContent.val() == roomCode) {
 
             var users = JSON.parse(userList);
@@ -112,17 +112,22 @@
                 var tempString = users[x];
                 var tempArray = tempString.split(':|!');
 
-                if (ownerId == connection.connectionId) {
-                    if (tempArray[1] == connection.connectionId) {
-                        $('#users').append('<li>' + tempArray[0] + '</li>');
-                    }
-                    else {
-                        var idString = "'" + tempString + "'";
-                        $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
-                    }                 
+                if (withGroups) {
+                    $('#users').append('<li>G' + tempArray[2] + ". " + tempArray[0] + ", S" + tempArray[3] + '.</li>');
                 }
                 else {
-                    $('#users').append('<li>' + tempArray[0] + '</li>');
+                    if (ownerId == connection.connectionId) {
+                        if (tempArray[1] == connection.connectionId) {
+                            $('#users').append('<li>' + tempArray[0] + '</li>');
+                        }
+                        else {
+                            var idString = "'" + tempString + "'";
+                            $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
+                        }
+                    }
+                    else {
+                        $('#users').append('<li>' + tempArray[0] + '</li>');
+                    }
                 }
             }
         }
@@ -133,7 +138,7 @@
         if ($roomContent.val() == roomCode) {
             document.getElementById("statusMessage").innerHTML = "Started game with room '" + $roomContent.val() + "'.";
             document.getElementById("preparations").style.display = "none";
-            document.getElementById("chat").style.display = "none";
+            // document.getElementById("chat").style.display = "none";
             document.getElementById("game").style.display = "block";
 
             // If owner

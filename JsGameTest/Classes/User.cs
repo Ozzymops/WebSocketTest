@@ -9,5 +9,7 @@ namespace JsGameTest.Classes
     {
         public string SocketId { get; set; }
         public string Username { get; set; }
+
+        public int GameGroup = 0;
     }
 }

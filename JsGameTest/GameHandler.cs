@@ -86,13 +86,13 @@ namespace JsGameTest
 
             Room.RoomOwnerId = socketId;
             Room.RoomOwner = username;
-            Room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
+            // Room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
 
             _gameManager.Rooms.Add(Room);
 
             await InvokeClientMethodToAllAsync("returnRoomCode", socketId, Room.RoomCode);
             await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
-            await RetrieveUserList(Room.RoomCode);
+            await RetrieveUserList(Room.RoomCode, false);
         }
 
         /// <summary>
@@ -108,37 +108,45 @@ namespace JsGameTest
             {
                 if (room.RoomCode == roomCode)
                 {
-                    if (room.RoomState == Classes.Room.State.Waiting)
+                    if (room.Users.Count == room.MaxPlayers)
                     {
-                        room.ResetTimer();
-                        room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
-                        await InvokeClientMethodToAllAsync("joinRoom", socketId, roomCode);
-                        await RetrieveUserList(room.RoomCode);
+                        string message = "Kan niet meedoen met het spel - het gekozen spel is al vol (" + room.Users.Count + "/" + room.MaxPlayers + ").";
+                        await InvokeClientMethodToAllAsync("setStateMessage", socketId, message);
                     }
                     else
                     {
-                        string message = "";
-
-                        switch (room.RoomState)
+                        if (room.RoomState == Classes.Room.State.Waiting)
                         {
-                            case Classes.Room.State.InProgress:
-                                message = "Kan niet meedoen met het spel - het gekozen spel is al begonnen.";
-                                break;
-
-                            case Classes.Room.State.Finished:
-                                message = "Kan niet meedoen met het spel - het gekozen spel is al afgelopen.";
-                                break;
-
-                            case Classes.Room.State.Dead:
-                                message = "Kan niet meedoen met het spel - de kamer is 'dood' en wordt binnenkort opgeruimd.";
-                                break;
-
-                            default:
-                                message = "Kan niet meedoen met het spel.";
-                                break;
+                            room.ResetTimer();
+                            room.Users.Add(new Classes.User { SocketId = socketId, Username = username });
+                            await InvokeClientMethodToAllAsync("joinRoom", socketId, roomCode);
+                            await RetrieveUserList(room.RoomCode, false);
                         }
+                        else
+                        {
+                            string message = "";
 
-                        await InvokeClientMethodToAllAsync("setStateMessage", socketId, message);
+                            switch (room.RoomState)
+                            {
+                                case Classes.Room.State.InProgress:
+                                    message = "Kan niet meedoen met het spel - het gekozen spel is al begonnen.";
+                                    break;
+
+                                case Classes.Room.State.Finished:
+                                    message = "Kan niet meedoen met het spel - het gekozen spel is al afgelopen.";
+                                    break;
+
+                                case Classes.Room.State.Dead:
+                                    message = "Kan niet meedoen met het spel - de kamer is 'dood' en wordt binnenkort opgeruimd.";
+                                    break;
+
+                                default:
+                                    message = "Kan niet meedoen met het spel.";
+                                    break;
+                            }
+
+                            await InvokeClientMethodToAllAsync("setStateMessage", socketId, message);
+                        }
                     }
                 }
             }
@@ -159,13 +167,19 @@ namespace JsGameTest
                     // If owner leaves...
                     if (socketId == room.RoomOwnerId)
                     {
+                        string message = "";
+
                         foreach (Classes.User user in room.Users)
                         {
                             await InvokeClientMethodToAllAsync("leaveRoom", user.SocketId, kicked);
 
-                            string message = "Kamer is gesloten omdat de eigenaar de kamer heeft verlaten.";
+                            message = "Kamer is gesloten omdat de eigenaar de kamer heeft verlaten.";
                             await InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
                         }
+
+                        await InvokeClientMethodToAllAsync("leaveRoom", room.RoomOwnerId, kicked);
+                        message = "Kamer is gesloten omdat de eigenaar de kamer heeft verlaten.";
+                        await InvokeClientMethodToAllAsync("setStateMessage", room.RoomOwnerId, message);
 
                         _gameManager.Rooms.Remove(room);
                         await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
@@ -179,7 +193,7 @@ namespace JsGameTest
                             room.Users.Remove(user);
                             room.ResetTimer();
                             await InvokeClientMethodToAllAsync("leaveRoom", socketId, kicked);
-                            await RetrieveUserList(room.RoomCode);
+                            await RetrieveUserList(room.RoomCode, false);
                         }
                     }
                 }
@@ -200,8 +214,10 @@ namespace JsGameTest
                 {
                     room.RoomState = Classes.Room.State.InProgress;
                     room.CurrentStrikes = room.MaxProgressStrikes;
+                    room.GamePreparation();
 
                     await InvokeClientMethodToAllAsync("startGame", roomCode, socketId);
+                    await RetrieveUserList(room.RoomCode, true);
                 }
             }
         }
@@ -211,7 +227,7 @@ namespace JsGameTest
         /// </summary>
         /// <param name="roomCode">Room</param>
         /// <returns></returns>
-        public async Task RetrieveUserList(string roomCode)
+        public async Task RetrieveUserList(string roomCode, bool withGroup)
         {
             string ownerId = "";
             List<string> UsernameList = new List<string>();
@@ -224,13 +240,23 @@ namespace JsGameTest
 
                     foreach(Classes.User user in room.Users)
                     {
-                        string tempString = user.Username + ":|!" + user.SocketId;
+                        string tempString = "";
+
+                        if (withGroup)
+                        {
+                            tempString = user.Username + ":|!" + user.SocketId + ":|!" + user.GameGroup + ":|!" + room.Stories[user.GameGroup-1].Title;
+                        }
+                        else
+                        {
+                            tempString = user.Username + ":|!" + user.SocketId;
+                        }
+
                         UsernameList.Add(tempString);
                     }
                 }
             }
 
-            await InvokeClientMethodToAllAsync("retrieveUserList", roomCode, ownerId, Newtonsoft.Json.JsonConvert.SerializeObject(UsernameList));
+            await InvokeClientMethodToAllAsync("retrieveUserList", roomCode, ownerId, Newtonsoft.Json.JsonConvert.SerializeObject(UsernameList), withGroup);
         }
 
         /// <summary>
