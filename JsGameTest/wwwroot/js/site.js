@@ -4,7 +4,7 @@
     connection.enableLogging = false;
 
     connection.connectionMethods.onConnected = () => {
-        repeatStuff();
+        getRoomCount();
     }
 
     connection.connectionMethods.onDisconnected = () => {
@@ -26,7 +26,7 @@
     }
 
     // Print message inside of chat
-    connection.clientMethods["pingMessage"] = (socketId, username, message, roomCode) => {
+    connection.clientMethods["pingMessage"] = (username, message, roomCode) => {
         if ($roomContent.val() == roomCode) {
             var messageText = username + ": " + message;
             $('#messages').append('<li>' + messageText + '</li>');
@@ -44,48 +44,53 @@
     // Open up a room.
     connection.clientMethods["returnRoomCode"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
-            document.getElementById("statusMessage").innerHTML = "Created room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'. You are the owner.";
-            document.getElementById("preparations").style.display = "none";
-            document.getElementById("chat").style.display = "block";
+            inRoom = true;
 
             $roomContent.val(roomCode);
 
-            var message = "[User " + $userContent.val().trim() + " joined the room.]"
-            var room = $roomContent.val().trim();
-            connection.invoke("ServerMessage", message, room);
+            document.getElementById("statusMessage").innerHTML = "Kamer aangemaakt met code '" + roomCode + "' als '" + $userContent.val().trim() + "'. Jij bent de eigenaar van de kamer.";
+            document.getElementById("preparations").style.display = "none";
+            document.getElementById("chat").style.display = "block";
+            document.getElementById("roomState").style.display = "block";
 
             // Set host buttons
             document.getElementById("startButton").style.display = "block";
-
-            inRoom = true;
-            getUsersAndRoomState();
         }
     }
 
     // Join a open room.
     connection.clientMethods["joinRoom"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
-            document.getElementById("statusMessage").innerHTML = "Joined room with code '" + roomCode + "' as '" + $userContent.val().trim() + "'.";
+            inRoom = true;
+
+            document.getElementById("statusMessage").innerHTML = "Kamer met code '" + roomCode + "' ingegaan als '" + $userContent.val().trim() + "'.";
             document.getElementById("preparations").style.display = "none";
             document.getElementById("chat").style.display = "block";
+            document.getElementById("roomState").style.display = "block";
 
-            inRoom = true;
-            getUsersAndRoomState();
+            // Set host buttons
+            document.getElementById("startButton").style.display = "none";
         }
     }
 
     // Leave a room.
-    connection.clientMethods["leaveRoom"] = (socketId) => {
+    connection.clientMethods["leaveRoom"] = (socketId, kicked) => {
         if (socketId == connection.connectionId) {
-            document.getElementById("statusMessage").innerHTML = "Left room.";
+            inRoom = false;
+
+            if (kicked) {
+                document.getElementById("statusMessage").innerHTML = "Je bent door de eigenaar van de kamer verwijderd.";
+            }
+            else {
+                document.getElementById("statusMessage").innerHTML = "Je hebt de kamer verlaten.";
+            }
+
+            // Reset screen
+            $('#messages').empty();
+            $roomContent.val('');
             document.getElementById("preparations").style.display = "flex";
             document.getElementById("chat").style.display = "none";
-            document.getElementById("roomState").innerHTML = "";
-            console.log("Left room.");
-
-            $('#messages').empty();
-
-            inRoom = false;
+            document.getElementById("roomState").style.display = "none";
         }
     }
 
@@ -108,10 +113,13 @@
                 var tempArray = tempString.split(':|!');
 
                 if (ownerId == connection.connectionId) {
-                    // var idString = "'" + tempArray[1] + "'";
-                    // $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
-                    var idString = "'" + tempString + "'";
-                    $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
+                    if (tempArray[1] == connection.connectionId) {
+                        $('#users').append('<li>' + tempArray[0] + '</li>');
+                    }
+                    else {
+                        var idString = "'" + tempString + "'";
+                        $('#users').append('<li>' + tempArray[0] + '<input class="form-check" onClick="$.kickUser(' + idString + ')" type="button" value="Kick" />' + '</li>');
+                    }                 
                 }
                 else {
                     $('#users').append('<li>' + tempArray[0] + '</li>');
@@ -195,7 +203,7 @@
 
         if (room.length != 0) {
             connection.invoke("ServerMessage", message, room);
-            connection.invoke("LeaveRoom", connection.connectionId, room);
+            connection.invoke("LeaveRoom", connection.connectionId, room, false);
 
             $userContent.val('');
             $messageContent.val('');
@@ -222,7 +230,7 @@
 
         if (room.length != 0) {
             connection.invoke("ServerMessage", message, room);
-            connection.invoke("LeaveRoom", tempArray[1], room);
+            connection.invoke("LeaveRoom", tempArray[1], room, true);
         }
     }
 
@@ -233,14 +241,16 @@
         setTimeout(repeatStuff, 5000); // repeat every five seconds
     }
 
-    function getUsersAndRoomState() {
+    // - Get amount of online rooms
+    function getRoomCount() {
+        connection.invoke("RetrieveRoomCount");
+    }
+
+    // - Get current room state
+    function getRoomState() {
         if (inRoom) {
             var room = $roomContent.val().trim();
-
-            connection.invoke("RetrieveUserList", room);
             connection.invoke("CheckRoomState", room);
-
-            setTimeout(getUsersAndRoomState, 10000); // repeat every ten seconds
         }
     }
 

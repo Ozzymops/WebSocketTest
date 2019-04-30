@@ -8,18 +8,27 @@ namespace JsGameTest.Classes
 {
     public class Room
     {
+        // Static
+        public State RoomState { get; set; }
+        public int MaxIdleStrikes = 3;
+        public int MaxProgressStrikes = 20;
+        // Dynamic
+        public int CurrentStrikes;
         public string RoomCode { get; set; }
         public string RoomOwnerId { get; set; }
         public string RoomOwner { get; set; }
         public enum State { Waiting, InProgress, Finished, Dead };
-        public State RoomState { get; set; }
         public List<Classes.User> Users { get; set; } = new List<Classes.User>();
         public List<dynamic> Messages { get; set; } = new List<dynamic>();
-        public int IdleStrikes = 3;
-        public int ProgressStrikes = 20;
+        
+
+        // Configuration
 
         public Timer timer = new Timer(TimeSpan.FromSeconds(60).TotalMilliseconds); // Tick every sixty seconds
 
+        /// <summary>
+        /// Constructor: generate random code and set timer.
+        /// </summary>
         public Room()
         {
             GenerateCode();
@@ -29,6 +38,9 @@ namespace JsGameTest.Classes
             timer.Start();
         }
 
+        /// <summary>
+        /// Generate code - random six digit code consisting of upper- and lowercase letters and numbers.
+        /// </summary>
         public void GenerateCode()
         {
             string code = "";
@@ -62,32 +74,45 @@ namespace JsGameTest.Classes
             RoomState = State.Waiting;
         }
 
+        /// <summary>
+        /// Idle timer - check if the room is still being actively used.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         public void IdleTimer(object sender, ElapsedEventArgs e)
         {
             // Tick timer - reset in every function call from handler
-            if (IdleStrikes > 0)
+            if (CurrentStrikes > 0)
             {
-                IdleStrikes -= 1;
+                CurrentStrikes -= 1;
             }
 
             // Die after strikes are up
-            if (IdleStrikes <= 0 && RoomState != State.Dead)
+            if (CurrentStrikes <= 0 && RoomState != State.Dead)
             {
                 RoomState = State.Dead;
                 timer.Stop();
             }
         }
 
+        /// <summary>
+        /// Reset the idle timer to the maximum allowed strikes.
+        /// </summary>
         public void ResetTimer()
         {
             if (RoomState == State.Waiting)
             {
-                IdleStrikes = 3;
+                CurrentStrikes = MaxIdleStrikes;
             }
             else if (RoomState == State.InProgress)
             {
-                IdleStrikes = ProgressStrikes;
+                CurrentStrikes = MaxProgressStrikes;
             }
+        }
+
+        public void RandomizeGroups()
+        {
+
         }
     }
 }
