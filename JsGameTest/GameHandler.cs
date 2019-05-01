@@ -18,28 +18,147 @@ namespace JsGameTest
         {
             _gameManager = gameManager;
 
-            // Timer ticks every five seconds.
+            // Room state timer
             Timer timer = new Timer(TimeSpan.FromSeconds(30).TotalMilliseconds);
             timer.AutoReset = true;
             timer.Elapsed += new ElapsedEventHandler(CheckRoomStates);
             timer.Start();
 
+            // Ping/pong timer
             Timer pingTimer = new Timer(TimeSpan.FromSeconds(5).TotalMilliseconds);
             pingTimer.AutoReset = true;
             pingTimer.Elapsed += new ElapsedEventHandler(PingPong);
             pingTimer.Start();
         }
 
+        #region Ping
         /// <summary>
-        /// Add a new connection to the list.
+        /// Add a connection to the connection list.
+        /// </summary>
+        /// <param name="socketId"></param>
+        public void AddConnection(string socketId)
+        {
+            // Create a new connections object
+            Classes.Connection newConnection = new Classes.Connection { SocketId = socketId, Pinged = true, Timeouts = 0 };
+
+            // Check if ID already exists in the list, to prevent spamming.
+            bool exists = false;
+
+            foreach (Classes.Connection c in _gameManager.Connections)
+            {
+                if (c.SocketId == socketId)
+                {
+                    exists = true;
+                    c.Pinged = true;
+                }
+            }
+
+            // If ID does not exist, create new ID.
+            if (!exists)
+            {
+                _gameManager.Connections.Add(newConnection);
+            }
+        }
+
+        /// <summary>
+        /// Check if existing connections are still alive and terminate connections that are not alive.
+        /// </summary>
+        /// <returns></returns>
+        public async void PingPong(object sender, ElapsedEventArgs e)
+        {
+            // Get current list of connections
+            List<Classes.Connection> connectionList = _gameManager.Connections;
+
+            // Make everyone see the current connections
+            await RetrieveConnections();
+
+            // Ping
+            if (PingOrPong)
+            {
+                // 'Ping' each connection
+                foreach (Classes.Connection c in connectionList)
+                {
+                    await InvokeClientMethodToAllAsync("takePingAndSendPong", c.SocketId);
+                }
+            }
+            // Pong
+            else
+            {
+                // Create tasklist for removals
+                List<Task> taskList = new List<Task>();
+
+                // Reset the timeouts of the current list
+                foreach (Classes.Connection c in connectionList)
+                {
+                    // Check if connection was pinged
+                    if (c.Pinged)
+                    {
+                        c.Timeouts = 0;
+                    }
+                    else
+                    {
+                        c.Timeouts += 1;
+                    }
+
+                    // If timeouts exceeds maximum amount of timeouts, remove connection from list and kick socket ID from everything applicable
+                    if (c.Timeouts >= 3)
+                    {
+                        // Remove connection from active rooms
+                        foreach (Classes.Room r in _gameManager.Rooms.ToList())
+                        {
+                            foreach (Classes.User u in r.Users.ToList())
+                            {
+                                if (u.SocketId == c.SocketId)
+                                {
+                                    // Create task to leave room
+                                    var y = new Task(() => {
+                                        LeaveRoom(u.SocketId, r.RoomCode, true);
+                                    });
+
+                                    taskList.Add(y);
+                                    y.Start();
+                                }
+                            }
+                        }
+
+                        // Create task to remove self
+                        var t = new Task(() => {
+                            _gameManager.Connections.Remove(c);
+                        });
+
+                        taskList.Add(t);
+                        t.Start();
+                    }
+
+                    // Reset pings
+                    c.Pinged = false;
+                }
+
+                // Execute tasks
+                Task.WaitAll(taskList.ToArray());
+            }
+
+            PingOrPong = !PingOrPong; // switch to ping or pong for next tick
+        }
+
+        /// <summary>
+        /// Add a pong to the list for PingPong.
         /// </summary>
         /// <param name="socketId">Socket ID</param>
         /// <returns></returns>
-        public async Task AddConnection(string socketId)
+        public void AddPong(string socketId)
         {
-            _gameManager.Connections.Add(new Classes.Connection { SocketId = socketId, Timeouts = 0 });
+            foreach (Classes.Connection c in _gameManager.Connections)
+            {
+                if (c.SocketId == socketId)
+                {
+                    c.Pinged = true;
+                }
+            }
         }
+        #endregion
 
+        #region Chat
         /// <summary>
         /// Send a message to everyone else in the room.
         /// </summary>
@@ -91,7 +210,9 @@ namespace JsGameTest
             }
             await InvokeClientMethodToAllAsync("serverMessage", message, roomCode);
         }
+        #endregion
 
+        #region Rooms
         /// <summary>
         /// Open a room instance.
         /// </summary>
@@ -219,6 +340,41 @@ namespace JsGameTest
         }
 
         /// <summary>
+        /// Check rooms for their states and handle accordingly.
+        /// </summary>
+        /// <returns></returns>
+        public async void CheckRoomStates(object sender, ElapsedEventArgs e)
+        {
+            List<Task> taskList = new List<Task>();
+
+            foreach (Classes.Room room in _gameManager.Rooms)
+            {
+                if (room.RoomState == Classes.Room.State.Dead)
+                {
+                    var t = new Task(() => {
+                        foreach (Classes.User user in room.Users)
+                        {
+                            InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
+
+                            string message = "Room has died. Reason: idle for too long.";
+                            InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
+                        }
+
+                        _gameManager.Rooms.Remove(room);
+                    });
+
+                    taskList.Add(t);
+                    t.Start();
+                }
+            }
+
+            Task.WaitAll(taskList.ToArray());
+            await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
+        }
+        #endregion
+
+        #region Game
+        /// <summary>
         /// Start a game with the current room.
         /// </summary>
         /// <param name="socketId">User ID</param>
@@ -239,7 +395,9 @@ namespace JsGameTest
                 }
             }
         }
+        #endregion
 
+        #region Visual
         /// <summary>
         /// Retrieve connected users inside of the current room.
         /// </summary>
@@ -276,106 +434,9 @@ namespace JsGameTest
 
             await InvokeClientMethodToAllAsync("retrieveUserList", roomCode, ownerId, Newtonsoft.Json.JsonConvert.SerializeObject(UsernameList), withGroup);
         }
+        #endregion
 
-        /// <summary>
-        /// Check rooms for their states and handle accordingly.
-        /// </summary>
-        /// <returns></returns>
-        public async void CheckRoomStates(object sender, ElapsedEventArgs e)
-        {
-            List<Task> taskList = new List<Task>();
-
-            foreach (Classes.Room room in _gameManager.Rooms)
-            {
-                if (room.RoomState == Classes.Room.State.Dead)
-                {
-                    var t = new Task(() => {
-                        foreach (Classes.User user in room.Users)
-                        {
-                            InvokeClientMethodToAllAsync("leaveRoom", user.SocketId);
-
-                            string message = "Room has died. Reason: idle for too long.";
-                            InvokeClientMethodToAllAsync("setStateMessage", user.SocketId, message);
-                        }
-
-                        _gameManager.Rooms.Remove(room);
-                    });
-
-                    taskList.Add(t);
-                    t.Start();
-                }
-            }
-
-            Task.WaitAll(taskList.ToArray());
-            await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
-        }
-
-        public async void PingPong(object sender, ElapsedEventArgs e)
-        {
-            List<Classes.Connection> currentConnections = _gameManager.Connections;
-
-            if (PingOrPong)
-            {
-                // Ping
-                foreach (Classes.Connection c in currentConnections)
-                {
-                    await InvokeClientMethodToAllAsync("ping", c.SocketId);
-                }
-            }
-            else
-            {
-                // Pong
-                List<Task> taskList = new List<Task>();
-                List<string> currentPongs = Pongs;
-
-                foreach (Classes.Connection c in currentConnections)
-                {
-                    bool found = false;
-
-                    foreach (string s in currentPongs)
-                    {
-                        if (c.SocketId == s)
-                        {
-                            found = true;
-                            c.Timeouts = 0;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        c.Timeouts++;
-                    }
-
-                    if (c.Timeouts >= 3)
-                    {
-                        var t = new Task(() => {
-                            _gameManager.Connections.Remove(c);
-                        });
-
-                        taskList.Add(t);
-                        t.Start();
-                    }
-                }
-
-                Task.WaitAll(taskList.ToArray());
-            }
-
-            PingOrPong = !PingOrPong;
-            await RetrievePingPongs();
-        }
-
-        public async Task TakePong(string socketId)
-        {
-            foreach (Classes.Connection c in _gameManager.Connections)
-            {
-                if (c.SocketId == socketId)
-                {
-                    Pongs.Add(socketId);
-                }
-            }
-        }
-
-        // DEBUG!!!
+        #region DEBUG/TESTING
         public async Task CheckRoomState(string roomCode)
         {
             foreach (Classes.Room room in _gameManager.Rooms)
@@ -388,16 +449,19 @@ namespace JsGameTest
             }
         }
 
-        public async Task RetrievePingPongs()
+        public async Task RetrieveConnections()
         {
-            List<string> PingPongs = new List<string>();
+            List<string> connectionList = new List<string>();
 
             foreach (Classes.Connection c in _gameManager.Connections)
             {
-                PingPongs.Add(c.SocketId + ":!|" + c.Timeouts);
+                string tempString = "";
+                tempString = c.SocketId + ":|!" + c.Timeouts;
+                connectionList.Add(tempString);
             }
 
-            await InvokeClientMethodToAllAsync("retrievePingPongs", Newtonsoft.Json.JsonConvert.SerializeObject(PingPongs));
+            await InvokeClientMethodToAllAsync("retrieveConnections", Newtonsoft.Json.JsonConvert.SerializeObject(connectionList));
         }
+        #endregion
     }
 }

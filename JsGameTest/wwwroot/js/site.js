@@ -1,5 +1,6 @@
 ﻿$(document).ready(function () {
-    // WebSocket
+    //#region WebSocketManager
+    //#region connectionMethods
     var connection = new WebSocketManager.Connection("ws://localhost:50000/game");
     connection.enableLogging = false;
 
@@ -11,41 +12,60 @@
     connection.connectionMethods.onDisconnected = () => {
 
     }
+    //#endregion
 
-    connection.clientMethods["ping"] = (socketId) => {
+    //#region Ping
+    // ~ Take ping and send pong
+    connection.clientMethods["takePingAndSendPong"] = (socketId) => {
         if (socketId == connection.connectionId) {
-            connection.invoke("TakePong", socketId);
+            connection.invoke("AddPong", connection.connectionId);
         }
     }
+    //#endregion
 
-    // Set status message
+    //#region Visual
+    // ~ Set status message (#statusMessage)
     connection.clientMethods["setStateMessage"] = (socketId, message) => {
         if (socketId == connection.connectionId) {
             document.getElementById("statusMessage").innerHTML = message;
         }
     }
 
-    // DEBUG check room state
+    // ~ Get room count and print
+    connection.clientMethods["retrieveRoomCount"] = (roomCount) => {
+        document.getElementById("rooms").innerHTML = "Kamers online: " + roomCount;
+    }
+    //#endregion
+
+    //#region DEBUG/TESTING
+    // ~ Check and print current room state
     connection.clientMethods["checkRoomState"] = (roomCode, state) => {
         if ($roomContent.val() == roomCode) {
             document.getElementById("roomState").innerHTML = state;
         }
     }
 
-    // DEBUG check connections
-    connection.clientMethods["retrievePingPongs"] = (ppList) => {
-        var pingpongs = JSON.parse(ppList);
+    // ~ Check connections and print socket ID + timeouts
+    connection.clientMethods["retrieveConnections"] = (connectionList) => {
+        var connections = JSON.parse(connectionList);
 
         $('#ppList').empty();
 
-        for (var x in pingpongs) {
-            var tempString = pingpongs[x];
-            var tempArray = tempString.split(':!|');
+        for (var x in connections) {
+            var tempString = connections[x];
+            var tempArray = tempString.split(':|!');
 
-            $('#ppList').append('<li>' + tempArray[0] + " - " + tempArray[1] + " timeouts." + '</li>');
+            if (tempArray[0] == connection.connectionId) {
+                $('#ppList').append('<li>' + tempArray[0] + " (jij!) - " + tempArray[1] + " timeouts." + '</li>');
+            }
+            else {
+                $('#ppList').append('<li>' + tempArray[0] + " - " + tempArray[1] + " timeouts." + '</li>');
+            }
         }
     }
+    //#endregion
 
+    //#region Chat
     // Print message inside of chat
     connection.clientMethods["pingMessage"] = (username, message, roomCode) => {
         if ($roomContent.val() == roomCode) {
@@ -61,8 +81,10 @@
             $('#messages').append('<li>' + messageText + '</li>');
         }
     }
+    //#endregion
 
-    // Open up a room.
+    //#region Rooms
+    // ~ Open up a room.
     connection.clientMethods["returnRoomCode"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
             inRoom = true;
@@ -79,7 +101,7 @@
         }
     }
 
-    // Join a open room.
+    // ~ Join a open room.
     connection.clientMethods["joinRoom"] = (socketId, roomCode) => {
         if (socketId == connection.connectionId) {
             inRoom = true;
@@ -94,7 +116,7 @@
         }
     }
 
-    // Leave a room.
+    // ~ Leave a room.
     connection.clientMethods["leaveRoom"] = (socketId, kicked) => {
         if (socketId == connection.connectionId) {
             inRoom = false;
@@ -115,12 +137,7 @@
         }
     }
 
-    // Get room count
-    connection.clientMethods["retrieveRoomCount"] = (roomCount) => {
-        document.getElementById("rooms").innerHTML = "Kamers online: " + roomCount;
-    }
-
-    // Get list of users inside of room
+    // ~ Get list of users inside of room
     connection.clientMethods["retrieveUserList"] = (roomCode, ownerId, userList, withGroups) => {
         if ($roomContent.val() == roomCode) {
 
@@ -153,7 +170,9 @@
             }
         }
     }
+    //#endregion
 
+    //#region Game
     // Start game with current room
     connection.clientMethods["startGame"] = (roomCode, ownerId) => {
         if ($roomContent.val() == roomCode) {
@@ -172,6 +191,8 @@
             }
         }
     }
+    //#endregion
+    //#endregion
 
     // ------------------------------------------------------------------------- //
     // Functions
@@ -201,6 +222,9 @@
 
     // - Create room
     $('#createButton').click(function () {
+        // Refresh connection
+        connection.invoke("AddConnection", connection.connectionId);
+
         var user = $userContent.val().trim();
 
         if (user.length != 0) {
@@ -210,6 +234,9 @@
 
     // - Join room
     $('#joinButton').click(function () {
+        // Refresh connection
+        connection.invoke("AddConnection", connection.connectionId);
+
         var user = $userContent.val().trim();
         var room = $roomContent.val().trim();
         var message = "[User " + $userContent.val().trim() + " joined the room.]";
