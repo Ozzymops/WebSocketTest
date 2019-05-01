@@ -11,6 +11,9 @@ namespace JsGameTest
     public class GameHandler : WebSocketHandler
     {
         private readonly GameManager _gameManager;
+        private bool PingOrPong = false;
+        private List<string> Pongs = new List<string>();
+
         public GameHandler (WebSocketConnectionManager webSocketConnectionManager, GameManager gameManager): base(webSocketConnectionManager)
         {
             _gameManager = gameManager;
@@ -20,6 +23,21 @@ namespace JsGameTest
             timer.AutoReset = true;
             timer.Elapsed += new ElapsedEventHandler(CheckRoomStates);
             timer.Start();
+
+            Timer pingTimer = new Timer(TimeSpan.FromSeconds(5).TotalMilliseconds);
+            pingTimer.AutoReset = true;
+            pingTimer.Elapsed += new ElapsedEventHandler(PingPong);
+            pingTimer.Start();
+        }
+
+        /// <summary>
+        /// Add a new connection to the list.
+        /// </summary>
+        /// <param name="socketId">Socket ID</param>
+        /// <returns></returns>
+        public async Task AddConnection(string socketId)
+        {
+            _gameManager.Connections.Add(new Classes.Connection { SocketId = socketId, Timeouts = 0 });
         }
 
         /// <summary>
@@ -292,6 +310,71 @@ namespace JsGameTest
             await InvokeClientMethodToAllAsync("retrieveRoomCount", _gameManager.Rooms.Count);
         }
 
+        public async void PingPong(object sender, ElapsedEventArgs e)
+        {
+            List<Classes.Connection> currentConnections = _gameManager.Connections;
+
+            if (PingOrPong)
+            {
+                // Ping
+                foreach (Classes.Connection c in currentConnections)
+                {
+                    await InvokeClientMethodToAllAsync("ping", c.SocketId);
+                }
+            }
+            else
+            {
+                // Pong
+                List<Task> taskList = new List<Task>();
+                List<string> currentPongs = Pongs;
+
+                foreach (Classes.Connection c in currentConnections)
+                {
+                    bool found = false;
+
+                    foreach (string s in currentPongs)
+                    {
+                        if (c.SocketId == s)
+                        {
+                            found = true;
+                            c.Timeouts = 0;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        c.Timeouts++;
+                    }
+
+                    if (c.Timeouts >= 3)
+                    {
+                        var t = new Task(() => {
+                            _gameManager.Connections.Remove(c);
+                        });
+
+                        taskList.Add(t);
+                        t.Start();
+                    }
+                }
+
+                Task.WaitAll(taskList.ToArray());
+            }
+
+            PingOrPong = !PingOrPong;
+            await RetrievePingPongs();
+        }
+
+        public async Task TakePong(string socketId)
+        {
+            foreach (Classes.Connection c in _gameManager.Connections)
+            {
+                if (c.SocketId == socketId)
+                {
+                    Pongs.Add(socketId);
+                }
+            }
+        }
+
         // DEBUG!!!
         public async Task CheckRoomState(string roomCode)
         {
@@ -303,6 +386,18 @@ namespace JsGameTest
                     await InvokeClientMethodToAllAsync("checkRoomState", room.RoomCode, state);
                 }
             }
+        }
+
+        public async Task RetrievePingPongs()
+        {
+            List<string> PingPongs = new List<string>();
+
+            foreach (Classes.Connection c in _gameManager.Connections)
+            {
+                PingPongs.Add(c.SocketId + ":!|" + c.Timeouts);
+            }
+
+            await InvokeClientMethodToAllAsync("retrievePingPongs", Newtonsoft.Json.JsonConvert.SerializeObject(PingPongs));
         }
     }
 }

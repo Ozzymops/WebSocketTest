@@ -4,11 +4,18 @@
     connection.enableLogging = false;
 
     connection.connectionMethods.onConnected = () => {
+        connection.invoke("AddConnection", connection.connectionId);
         getRoomCount();
     }
 
     connection.connectionMethods.onDisconnected = () => {
 
+    }
+
+    connection.clientMethods["ping"] = (socketId) => {
+        if (socketId == connection.connectionId) {
+            connection.invoke("TakePong", socketId);
+        }
     }
 
     // Set status message
@@ -22,6 +29,20 @@
     connection.clientMethods["checkRoomState"] = (roomCode, state) => {
         if ($roomContent.val() == roomCode) {
             document.getElementById("roomState").innerHTML = state;
+        }
+    }
+
+    // DEBUG check connections
+    connection.clientMethods["retrievePingPongs"] = (ppList) => {
+        var pingpongs = JSON.parse(ppList);
+
+        $('#ppList').empty();
+
+        for (var x in pingpongs) {
+            var tempString = pingpongs[x];
+            var tempArray = tempString.split(':!|');
+
+            $('#ppList').append('<li>' + tempArray[0] + " - " + tempArray[1] + " timeouts." + '</li>');
         }
     }
 
